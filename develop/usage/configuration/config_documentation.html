@@ -2115,8 +2115,8 @@ Defaults to false.</p>
 <h3 id="enable_legacy_metrics"><a class="header" href="#enable_legacy_metrics"><code>enable_legacy_metrics</code></a></h3>
 <p>Set to <code>true</code> to publish both legacy and non-legacy Prometheus metric names,
 or to <code>false</code> to only publish non-legacy Prometheus metric names.
-Defaults to <code>true</code>. Has no effect if <code>enable_metrics</code> is <code>false</code>.
-<strong>In Synapse v1.71.0, this will default to <code>false</code> before being removed in Synapse v1.73.0.</strong></p>
+Defaults to <code>false</code>. Has no effect if <code>enable_metrics</code> is <code>false</code>.
+<strong>In Synapse v1.67.0 up to and including Synapse v1.70.1, this defaulted to <code>true</code>.</strong></p>
 <p>Legacy metric names include:</p>
 <ul>
 <li>metrics containing colons in the name, such as <code>synapse_util_caches_response_cache:hits</code>, because colons are supposed to be reserved for user-defined recording rules;</li>
@@ -2666,6 +2666,17 @@ without modifications.</p>
 <p>When rendering, the Jinja2 templates are given a 'user' variable,
 which is set to the claims returned by the UserInfo Endpoint and/or
 in the ID Token.</p>
+</li>
+<li>
+<p><code>backchannel_logout_enabled</code>: set to <code>true</code> to process OIDC Back-Channel Logout notifications. 
+Those notifications are expected to be received on <code>/_synapse/client/oidc/backchannel_logout</code>.
+Defaults to <code>false</code>.</p>
+</li>
+<li>
+<p><code>backchannel_logout_ignore_sub</code>: by default, the OIDC Back-Channel Logout feature checks that the
+<code>sub</code> claim matches the subject claim received during login. This check can be disabled by setting
+this to <code>true</code>. Defaults to <code>false</code>.</p>
+<p>You might want to disable this if the <code>subject_claim</code> returned by the mapping provider is not <code>sub</code>.</p>
 </li>
 </ul>
 <p>It is possible to configure Synapse to only allow logins if certain attributes

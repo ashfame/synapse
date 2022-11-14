@@ -919,6 +919,9 @@ reverse proxy is using.</p>
         # Nginx by default only allows file uploads up to 1M in size
         # Increase client_max_body_size to match max_upload_size defined in homeserver.yaml
         client_max_body_size 50M;
+	
+	# Synapse responses may be chunked, which is an HTTP/1.1 feature.
+	proxy_http_version 1.1;
     }
 }
 </code></pre>
@@ -1624,6 +1627,11 @@ dpkg -i matrix-synapse-py3_1.3.0+stretch1_amd64.deb
 </code></pre>
 </li>
 </ul>
+<h1 id="upgrading-to-v1720"><a class="header" href="#upgrading-to-v1720">Upgrading to v1.72.0</a></h1>
+<h2 id="dropping-support-for-postgresql-10"><a class="header" href="#dropping-support-for-postgresql-10">Dropping support for PostgreSQL 10</a></h2>
+<p>In line with our <a href="deprecation_policy.html">deprecation policy</a>, we've dropped
+support for PostgreSQL 10, as it is no longer supported upstream.</p>
+<p>This release of Synapse requires PostgreSQL 11+.</p>
 <h1 id="upgrading-to-v1710"><a class="header" href="#upgrading-to-v1710">Upgrading to v1.71.0</a></h1>
 <h2 id="removal-of-the-generate_short_term_login_token-module-api-method"><a class="header" href="#removal-of-the-generate_short_term_login_token-module-api-method">Removal of the <code>generate_short_term_login_token</code> module API method</a></h2>
 <p>As announced with the release of <a href="upgrade.html#deprecation-of-the-generate_short_term_login_token-module-api-method">Synapse 1.69.0</a>, the deprecated <code>generate_short_term_login_token</code> module method has been removed.</p>
@@ -1642,6 +1650,16 @@ room to be interesting to the application service.</p>
 this will no longer match as you expect. The behavioral mismatch between matching all
 local users and some remote users is why the spec was changed/clarified and this
 caveat is no longer supported.</p>
+<h2 id="legacy-prometheus-metric-names-are-now-disabled-by-default"><a class="header" href="#legacy-prometheus-metric-names-are-now-disabled-by-default">Legacy Prometheus metric names are now disabled by default</a></h2>
+<p>Synapse v1.71.0 disables legacy Prometheus metric names by default.
+For administrators that still rely on them and have not yet had chance to update their
+uses of the metrics, it's still possible to specify <code>enable_legacy_metrics: true</code> in
+the configuration to re-enable them temporarily.</p>
+<p>Synapse v1.73.0 will <strong>remove legacy metric names altogether</strong> and at that point,
+it will no longer be possible to re-enable them.</p>
+<p>If you do not use metrics or you have already updated your Grafana dashboard(s),
+Prometheus console(s) and alerting rule(s), there is no action needed.</p>
+<p>See <a href="upgrade.html#deprecation-of-legacy-prometheus-metric-names">v1.69.0: Deprecation of legacy Prometheus metric names</a>.</p>
 <h1 id="upgrading-to-v1690"><a class="header" href="#upgrading-to-v1690">Upgrading to v1.69.0</a></h1>
 <h2 id="changes-to-the-receipts-replication-streams"><a class="header" href="#changes-to-the-receipts-replication-streams">Changes to the receipts replication streams</a></h2>
 <p>Synapse now includes information indicating if a receipt applies to a thread when
@@ -5265,8 +5283,8 @@ Defaults to false.</p>
 <h3 id="enable_legacy_metrics"><a class="header" href="#enable_legacy_metrics"><code>enable_legacy_metrics</code></a></h3>
 <p>Set to <code>true</code> to publish both legacy and non-legacy Prometheus metric names,
 or to <code>false</code> to only publish non-legacy Prometheus metric names.
-Defaults to <code>true</code>. Has no effect if <code>enable_metrics</code> is <code>false</code>.
-<strong>In Synapse v1.71.0, this will default to <code>false</code> before being removed in Synapse v1.73.0.</strong></p>
+Defaults to <code>false</code>. Has no effect if <code>enable_metrics</code> is <code>false</code>.
+<strong>In Synapse v1.67.0 up to and including Synapse v1.70.1, this defaulted to <code>true</code>.</strong></p>
 <p>Legacy metric names include:</p>
 <ul>
 <li>metrics containing colons in the name, such as <code>synapse_util_caches_response_cache:hits</code>, because colons are supposed to be reserved for user-defined recording rules;</li>
@@ -5816,6 +5834,17 @@ without modifications.</p>
 <p>When rendering, the Jinja2 templates are given a 'user' variable,
 which is set to the claims returned by the UserInfo Endpoint and/or
 in the ID Token.</p>
+</li>
+<li>
+<p><code>backchannel_logout_enabled</code>: set to <code>true</code> to process OIDC Back-Channel Logout notifications. 
+Those notifications are expected to be received on <code>/_synapse/client/oidc/backchannel_logout</code>.
+Defaults to <code>false</code>.</p>
+</li>
+<li>
+<p><code>backchannel_logout_ignore_sub</code>: by default, the OIDC Back-Channel Logout feature checks that the
+<code>sub</code> claim matches the subject claim received during login. This check can be disabled by setting
+this to <code>true</code>. Defaults to <code>false</code>.</p>
+<p>You might want to disable this if the <code>subject_claim</code> returned by the mapping provider is not <code>sub</code>.</p>
 </li>
 </ul>
 <p>It is possible to configure Synapse to only allow logins if certain attributes
@@ -7225,6 +7254,10 @@ maintainer.</p>
 setting in your configuration file.
 See the <a href="usage/configuration/config_documentation.html#oidc_providers">configuration manual</a> for some sample settings, as well as
 the text below for example configurations for specific providers.</p>
+<h2 id="oidc-back-channel-logout"><a class="header" href="#oidc-back-channel-logout">OIDC Back-Channel Logout</a></h2>
+<p>Synapse supports receiving <a href="https://openid.net/specs/openid-connect-backchannel-1_0.html">OpenID Connect Back-Channel Logout</a> notifications.</p>
+<p>This lets the OpenID Connect Provider notify Synapse when a user logs out, so that Synapse can end that user session.
+This feature can be enabled by setting the <code>backchannel_logout_enabled</code> property to <code>true</code> in the provider configuration, and setting the following URL as destination for Back-Channel Logout notifications in your OpenID Connect Provider: <code>[synapse public baseurl]/_synapse/client/oidc/backchannel_logout</code></p>
 <h2 id="sample-configs"><a class="header" href="#sample-configs">Sample configs</a></h2>
 <p>Here are a few configs for providers that should work with Synapse.</p>
 <h3 id="microsoft-azure-active-directory"><a class="header" href="#microsoft-azure-active-directory">Microsoft Azure Active Directory</a></h3>
@@ -7282,6 +7315,8 @@ to install Dex.</p>
 </code></pre>
 <h3 id="keycloak"><a class="header" href="#keycloak">Keycloak</a></h3>
 <p><a href="https://www.keycloak.org/docs/latest/server_admin/#sso-protocols">Keycloak</a> is an opensource IdP maintained by Red Hat.</p>
+<p>Keycloak supports OIDC Back-Channel Logout, which sends logout notification to Synapse, so that Synapse users get logged out when they log out from Keycloak.
+This can be optionally enabled by setting <code>backchannel_logout_enabled</code> to <code>true</code> in the Synapse configuration, and by setting the &quot;Backchannel Logout URL&quot; in Keycloak.</p>
 <p>Follow the <a href="https://www.keycloak.org/getting-started">Getting Started Guide</a> to install Keycloak and set up a realm.</p>
 <ol>
 <li>
@@ -7305,6 +7340,8 @@ to install Dex.</p>
 <tr><td>Client Protocol</td><td><code>openid-connect</code></td></tr>
 <tr><td>Access Type</td><td><code>confidential</code></td></tr>
 <tr><td>Valid Redirect URIs</td><td><code>[synapse public baseurl]/_synapse/client/oidc/callback</code></td></tr>
+<tr><td>Backchannel Logout URL (optional)</td><td> <code>[synapse public baseurl]/_synapse/client/oidc/backchannel_logout</code></td></tr>
+<tr><td>Backchannel Logout Session Required (optional)</td><td> <code>On</code></td></tr>
 </tbody></table>
 <ol start="5">
 <li>Click <code>Save</code></li>
@@ -7328,6 +7365,7 @@ to install Dex.</p>
       config:
         localpart_template: &quot;{{ user.preferred_username }}&quot;
         display_name_template: &quot;{{ user.name }}&quot;
+    backchannel_logout_enabled: true # Optional
 </code></pre>
 <h3 id="auth0"><a class="header" href="#auth0">Auth0</a></h3>
 <p><a href="https://auth0.com/">Auth0</a> is a hosted SaaS IdP solution.</p>
@@ -10232,9 +10270,10 @@ have different characteristics and so admins
 may wish to run multiple groups of workers handling different endpoints so that
 load balancing can be done in different ways.</p>
 <p>For <code>/sync</code> and <code>/initialSync</code> requests it will be more efficient if all
-requests from a particular user are routed to a single instance. Extracting a
-user ID from the access token or <code>Authorization</code> header is currently left as an
-exercise for the reader. Admins may additionally wish to separate out <code>/sync</code>
+requests from a particular user are routed to a single instance. This can
+be done e.g. in nginx via IP <code>hash $http_x_forwarded_for;</code> or via
+<code>hash $http_authorization consistent;</code> which contains the users access token.</p>
+<p>Admins may additionally wish to separate out <code>/sync</code>
 requests that have a <code>since</code> query parameter from those that don't (and
 <code>/initialSync</code>), as requests that don't are known as &quot;initial sync&quot; that happens
 when a user logs in on a new device and can be <em>very</em> resource intensive, so
@@ -13653,6 +13692,30 @@ for more information.</p>
 }
 </code></pre>
 <p><em>Added in Synapse 1.68.0.</em></p>
+<h3 id="find-a-user-based-on-their-third-party-id-threepid-or-3pid"><a class="header" href="#find-a-user-based-on-their-third-party-id-threepid-or-3pid">Find a user based on their Third Party ID (ThreePID or 3PID)</a></h3>
+<p>The API is:</p>
+<pre><code>GET /_synapse/admin/v1/threepid/$medium/users/$address
+</code></pre>
+<p>When a user matched the given address for the given medium, an HTTP code <code>200</code> with a response body like the following is returned:</p>
+<pre><code class="language-json">{
+    &quot;user_id&quot;: &quot;@hello:example.org&quot;
+}
+</code></pre>
+<p><strong>Parameters</strong></p>
+<p>The following parameters should be set in the URL:</p>
+<ul>
+<li><code>medium</code> - Kind of third-party ID, either <code>email</code> or <code>msisdn</code>.</li>
+<li><code>address</code> - Value of the third-party ID.</li>
+</ul>
+<p>The <code>address</code> may have characters that are not URL-safe, so it is advised to URL-encode those parameters.</p>
+<p><strong>Errors</strong></p>
+<p>Returns a <code>404</code> HTTP status code if no user was found, with a response body like this:</p>
+<pre><code class="language-json">{
+    &quot;errcode&quot;:&quot;M_NOT_FOUND&quot;,
+    &quot;error&quot;:&quot;User not found&quot;
+}
+</code></pre>
+<p><em>Added in Synapse 1.72.0.</em></p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="version-api"><a class="header" href="#version-api">Version API</a></h1>
 <p>This API returns the running Synapse version and the Python version
 on which Synapse is being run. This is useful when a Synapse instance
@@ -14098,6 +14161,9 @@ altogether in Synapse v1.73.0.</strong></p>
 <tr><td>synapse_http_httppusher_http_pushes_failed_total</td><td>synapse_http_httppusher_http_pushes_failed</td></tr>
 <tr><td>synapse_http_httppusher_badge_updates_processed_total</td><td>synapse_http_httppusher_badge_updates_processed</td></tr>
 <tr><td>synapse_http_httppusher_badge_updates_failed_total</td><td>synapse_http_httppusher_badge_updates_failed</td></tr>
+<tr><td>synapse_admin_mau_current</td><td>synapse_admin_mau:current</td></tr>
+<tr><td>synapse_admin_mau_max</td><td>synapse_admin_mau:max</td></tr>
+<tr><td>synapse_admin_mau_registered_reserved_users</td><td>synapse_admin_mau:registered_reserved_users</td></tr>
 </tbody></table>
 <h2 id="removal-of-deprecated-metrics--time-based-counters-becoming-histograms-in-0310"><a class="header" href="#removal-of-deprecated-metrics--time-based-counters-becoming-histograms-in-0310">Removal of deprecated metrics &amp; time based counters becoming histograms in 0.31.0</a></h2>
 <p>The duplicated metrics deprecated in Synapse 0.27.0 have been removed.</p>
@@ -14310,11 +14376,11 @@ config value.</p>
 <p>When a request is blocked, the response will have the <code>errcode</code> <code>M_RESOURCE_LIMIT_EXCEEDED</code>.</p>
 <h2 id="metrics-1"><a class="header" href="#metrics-1">Metrics</a></h2>
 <p>Synapse records several different prometheus metrics for MAU.</p>
-<p><code>synapse_admin_mau:current</code> records the current MAU figure for native (non-application-service) users.</p>
-<p><code>synapse_admin_mau:max</code> records the maximum MAU as dictated by the <code>max_mau_value</code> config value.</p>
+<p><code>synapse_admin_mau_current</code> records the current MAU figure for native (non-application-service) users.</p>
+<p><code>synapse_admin_mau_max</code> records the maximum MAU as dictated by the <code>max_mau_value</code> config value.</p>
 <p><code>synapse_admin_mau_current_mau_by_service</code> records the current MAU including application service users. The label <code>app_service</code> can be used
 to filter by a specific service ID. This <em>also</em> includes non-application-service users under <code>app_service=native</code> .</p>
-<p><code>synapse_admin_mau:registered_reserved_users</code> records the number of users specified in <code>mau_limits_reserved_threepids</code> which have
+<p><code>synapse_admin_mau_registered_reserved_users</code> records the number of users specified in <code>mau_limits_reserved_threepids</code> which have
 registered accounts on the homeserver.</p>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="understanding-synapse-through-grafana-graphs"><a class="header" href="#understanding-synapse-through-grafana-graphs">Understanding Synapse through Grafana graphs</a></h2>
 <p>It is possible to monitor much of the internal state of Synapse using <a href="https://prometheus.io">Prometheus</a> 
@@ -14928,7 +14994,16 @@ Here is how to run your local Synapse checkout against your local Complement che
 <p>The above will run a monolithic (single-process) Synapse with SQLite as the database. For other configurations, try:</p>
 <ul>
 <li>Passing <code>POSTGRES=1</code> as an environment variable to use the Postgres database instead.</li>
-<li>Passing <code>WORKERS=1</code> as an environment variable to use a workerised setup instead. This option implies the use of Postgres.</li>
+<li>Passing <code>WORKERS=1</code> as an environment variable to use a workerised setup instead. This option implies the use of Postgres.
+<ul>
+<li>If setting <code>WORKERS=1</code>, optionally set <code>WORKER_TYPES=</code> to declare which worker
+types you wish to test. A simple comma-delimited string containing the worker types
+defined from the <code>WORKERS_CONFIG</code> template in
+<a href="https://github.com/matrix-org/synapse/blob/develop/docker/configure_workers_and_start.py#L54">here</a>.
+A safe example would be <code>WORKER_TYPES=&quot;federation_inbound, federation_sender, synchrotron&quot;</code>.
+See the <a href="development/../workers.html">worker documentation</a> for additional information on workers.</li>
+</ul>
+</li>
 </ul>
 <p>To increase the log level for the tests, set <code>SYNAPSE_TEST_LOG_LEVEL</code>, e.g:</p>
 <pre><code class="language-sh">SYNAPSE_TEST_LOG_LEVEL=DEBUG COMPLEMENT_DIR=../complement ./scripts-dev/complement.sh -run TestImportHistoricalMessages
